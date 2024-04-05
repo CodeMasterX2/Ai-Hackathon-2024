@@ -1,0 +1,272 @@
+import os
+import logging
+import configparser
+import yfinance as yf
+from alpha_vantage.timeseries import TimeSeries
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Set up logging
+logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
+
+# Load configuration from a separate file
+config = configparser.ConfigParser()
+config.read('config.ini')
+
+# Initialize API keys (Make sure to set these in your config.ini file)
+POLYGON_API_KEY = os.environ.get('3CUnpbg5RGn58kGAkwtC76Zp8WXYPZqN')
+ALPHAVANTAGE_API_KEY = os.environ.get('JZLKU33LHWV2ADSN')
+ANTHROPIC_API_KEY = os.environ.get('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')
+
+# Initialize Anthropia client
+from anthropic import Anthropic
+client_anthropic = Anthropic(api_key='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')
+
+# Function to preprocess stock data
+def preprocess_stock_data(stock_data):
+    try:
+        # Assuming 'stock_data' is a pandas DataFrame with columns: Open, High, Low, Close, Volume
+        # Preprocessing steps include handling missing values and scaling features
+
+        # 1. Handling Missing Values
+        stock_data.dropna(inplace=True)  # Drop rows with missing values, or use imputation techniques
+
+        # 2. Feature Scaling
+        scaler = StandardScaler()
+        scaled_features = scaler.fit_transform(stock_data[['Open', 'High', 'Low', 'Volume']])  # Scale numerical features
+        stock_data[['Open', 'High', 'Low', 'Volume']] = scaled_features
+
+        return stock_data
+    except Exception as e:
+        logging.error(f"Error in preprocessing stock data: {e}")
+        return None
+
+# Function to generate response using Anthropia
+def generate_response_anthropic(user_input):
+    try:
+        message = client_anthropic.messages.create(
+            model="claude-3-opus-20240229",
+            max_tokens=1000,
+            temperature=0.0,
+            system="Respond only in Financial-speak.",
+            messages=[{"role": "user", "content": user_input}]
+        )
+        return message.content[0].text  # Extract only the main text content
+    except Exception as e:
+        logging.error(f"Error in generating Anthropia response: {e}")
+        return None
+
+# Function to train a linear regression model
+def train_linear_regression_model(X_train, y_train, X_test, y_test):
+    try:
+        # Initialize the linear regression model
+        model = LinearRegression()
+
+        # Train the model
+        model.fit(X_train, y_train)
+
+        # Make predictions on the test set
+        predictions = model.predict(X_test)
+
+        # Calculate mean squared error and R-squared
+        mse = mean_squared_error(y_test, predictions)
+        r2 = r2_score(y_test, predictions)
+        logging.info(f"Mean Squared Error: {mse}")
+        logging.info(f"R-squared: {r2}")
+
+        return model
+    except Exception as e:
+        logging.error(f"Error in training linear regression model: {e}")
+        return None
+
+# Function to download historical stock data using yfinance
+def download_stock_data_yfinance(symbol, start_date, end_date):
+    try:
+        stock_data = yf.download(symbol, start='2010-01-01', end=end_date)
+        return preprocess_stock_data(stock_data)
+    except Exception as e:
+        logging.error(f"Error in downloading stock data from Yahoo Finance: {e}")
+        return None
+
+# Function to download historical stock data using Alpha Vantage
+def download_stock_data_alpha_vantage(symbol, start_date, end_date):
+    try:
+        ts = TimeSeries(key='JZLKU33LHWV2ADSN', output_format='pandas')
+        stock_data, _ = ts.get_daily(symbol=symbol, outputsize='full')
+        stock_data = stock_data.loc[start_date:end_date]
+        return preprocess_stock_data(stock_data)
+    except Exception as e:
+        logging.error(f"Error in downloading stock data from Alpha Vantage: {e}")
+        return None
+
+# Function to fetch stock prediction data
+def calculate_ai_stock_score(stock_name):
+    try:
+        # Placeholder function to calculate AI stock score
+        # You can implement this function using various APIs for fetching stock price and news sentiment
+
+        # For demonstration purposes, let's assume a random score between 1 and 100
+        ai_stock_score = np.random.randint(1, 101)
+        return ai_stock_score
+    except Exception as e:
+        logging.error(f"Error in calculating AI stock score: {e}")
+        return None
+
+def interpret_ai_stock_score(score):
+    try:
+        # Interpret the AI stock score and provide a recommendation
+        if score <= 10:
+            recommendation = "Very Low"
+        elif score <= 19:
+            recommendation = "Low"
+        elif score <= 29:
+            recommendation = "Mid Low"
+        elif score <= 39:
+            recommendation = "Mid High"
+        elif score <= 49:
+            recommendation = "Mid"
+        elif score <= 69:
+            recommendation = "High"
+        elif score <= 89:
+            recommendation = "Very High"
+        else:
+            recommendation = "Best"
+        return recommendation
+    except Exception as e:
+        logging.error(f"Error in interpreting AI stock score: {e}")
+        return None
+
+
+# Function to fetch key financial metrics from Polygon
+def get_polygon_metrics(stock_name):
+    try:
+        # Placeholder function to fetch key financial metrics from Polygon
+        # You can use the Polygon API to fetch financial metrics like revenue, net income, EPS, etc.
+
+        # For demonstration purposes, let's assume some random values
+        revenue_ttm = np.random.randint(1000000, 10000000)  # Random revenue in range $1M to $10M
+        net_income_ttm = np.random.randint(100000, 1000000)  # Random net income in range $100K to $1M
+        eps_ttm = np.random.uniform(0.1, 10.0)  # Random EPS in range $0.1 to $10.0
+        trailing_pe = np.random.uniform(5.0, 50.0)  # Random PE ratio in range 5.0 to 50.0
+        dividend_yield = np.random.uniform(0.5, 5.0)  # Random dividend yield in range 0.5% to 5.0%
+
+        return revenue_ttm, net_income_ttm, eps_ttm, trailing_pe, dividend_yield
+    except Exception as e:
+        logging.error(f"Error in fetching key financial metrics from Polygon: {e}")
+        return None, None, None, None, None
+
+
+# Function to train a linear regression model
+# Function to train a linear regression model
+def train_linear_regression_model(X_train, y_train, X_test, y_test, feature_names):
+    try:
+        # Initialize the linear regression model
+        model = LinearRegression()
+
+        # Train the model
+        model.fit(X_train, y_train)
+
+        # Make predictions on the test set
+        predictions = model.predict(X_test)
+
+        # Calculate mean squared error and R-squared
+        mse = mean_squared_error(y_test, predictions)
+        r2 = r2_score(y_test, predictions)
+        logging.info(f"Mean Squared Error: {mse}")
+        logging.info(f"R-squared: {r2}")
+
+        # Add feature names to the model if available
+        if feature_names is not None:
+            model.feature_names = feature_names
+
+        return model
+    except Exception as e:
+        logging.error(f"Error in training linear regression model: {e}")
+        return None
+
+# Function to predict stock prices for the next 3 days
+def predict_next_3_days(model, recent_data):
+    try:
+        # Predict the next 3 days using the trained model
+        next_3_days = pd.date_range(start=recent_data.index[-1], periods=3, freq='D')
+        next_3_days_data = pd.DataFrame(index=next_3_days, columns=recent_data.columns)
+
+        for i, date in enumerate(next_3_days):
+            features = recent_data.iloc[-1].values.reshape(1, -1)  # Use the last available data
+            next_day_prediction = model.predict(features)
+            next_3_days_data.iloc[i] = next_day_prediction
+
+        return next_3_days_data
+    except Exception as e:
+        logging.error(f"Error in predicting next 3 days: {e}")
+        return None
+
+def main(stock_name):
+    try:
+        # Step 1: User input stock name
+        print("Step 1: Enter the stock name:")
+        print(stock_name)
+
+        # Step 2: AI prediction score
+        ai_stock_score = calculate_ai_stock_score(stock_name)
+        print(f"\nStep 2: AI Stock Score for {stock_name}: {ai_stock_score}")
+
+        # Step 3: Input for AI suggestion from user
+        print(f"\nStep 3: Enter your question for the AI regarding {stock_name}:")
+        ai_suggestion = input()
+
+        # Step 4: Response from Anthropic AI based on the suggestion
+        print("\nStep 4: Anthropic Response:")
+        response_anthropic = generate_response_anthropic(ai_suggestion)
+        if response_anthropic:
+            print(response_anthropic)
+        else:
+            print("Failed to generate Anthropic response.")
+
+        # Step 5: Display the past 5 days of Stock Data, fetch key financial metrics from Polygon, and plot stock data
+        print("\nStep 5: Past 5 Days Stock Data, Key Financial Metrics, and Plotting Stock Data:")
+        start_date = pd.Timestamp.now() - pd.Timedelta(days=5)
+        end_date = pd.Timestamp.now()
+        stock_data_yfinance = download_stock_data_yfinance(stock_name, start_date, end_date)
+        if stock_data_yfinance is not None:
+            print(stock_data_yfinance)
+
+            # Fetch key financial metrics from Polygon
+            print("\nKey financial metrics for", stock_name, ":")
+            revenue_ttm, net_income_ttm, eps_ttm, trailing_pe, dividend_yield = get_polygon_metrics(stock_name)
+            if revenue_ttm is not None:
+                print("1. Revenue (TTM): $", revenue_ttm)
+                print("2. Net Income (TTM): $", net_income_ttm)
+                print("3. Earnings Per Share (TTM): $", eps_ttm)
+                print("4. Price to Earnings Ratio (TTM):", trailing_pe)
+                print("5. Dividend Yield:", dividend_yield, "%")
+
+                # Step 6: Plotting the stock data
+                print("\nStep 6: Plotting Stock Data:")
+                plt.figure(figsize=(10, 6))
+                plt.plot(stock_data_yfinance.index, stock_data_yfinance['Close'], label='Close Price', color='blue')
+                plt.title(f'Stock Data for {stock_name}')
+                plt.xlabel('Date')
+                plt.ylabel('Price')
+                plt.legend()
+                plt.grid(True)
+                plt.xticks(rotation=45)
+                plt.tight_layout()
+                plt.show()
+    except Exception as e:
+        logging.error(f"Error in main function: {e}")
+
+if __name__ == "__main__":
+    try:
+        # Step 1: User input stock name
+        stock_name = input("Enter the stock name: ")
+
+        # Call the main function with the user-input stock symbol
+        main(stock_name)
+    except Exception as e:
+        logging.error(f"Error in __main__ block: {e}")
