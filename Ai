@@ -19,13 +19,13 @@ config = configparser.ConfigParser()
 config.read('config.ini')
 
 # Initialize API keys (Make sure to set these in your config.ini file)
-POLYGON_API_KEY = os.environ.get('3CUnpbg5RGn58kGAkwtC76Zp8WXYPZqN')
-ALPHAVANTAGE_API_KEY = os.environ.get('JZLKU33LHWV2ADSN')
-ANTHROPIC_API_KEY = os.environ.get('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')
+POLYGON_API_KEY = os.environ.get('api_key')
+ALPHAVANTAGE_API_KEY = os.environ.get('api_key')
+ANTHROPIC_API_KEY = os.environ.get('api_key')
 
 # Initialize Anthropia client
 from anthropic import Anthropic
-client_anthropic = Anthropic(api_key='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')
+client_anthropic = Anthropic(api_key='api_key')
 
 # Function to preprocess stock data
 def preprocess_stock_data(stock_data):
